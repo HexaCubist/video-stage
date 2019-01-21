@@ -2,6 +2,7 @@
   <div id="wrapper" class="row">
     <header class="col-md-3">
       <h1>Video Stage</h1>
+      <a href="/" class="btn btn-large btn-warning">Restart</a>
     </header>
     <main class="offset-md-3 col-md-9">
       <div class="intro">
@@ -41,6 +42,7 @@
                 <input type="number" class="form-control" placeholder="B" v-model.number="device.rgb[2]" min="0" :max="device.numCh - 1">
               </div>
             </div>
+            <button class="btn btn-danger dmx-delete" @click="delDMX(index)">Delete</button>
           </div>
         </div>
         <div class="col-xl-3 col-lg-4 col-sm-6">
@@ -72,7 +74,6 @@
           <h3>Screen Feed</h3>
           <div id="video-container"><video id="video"
           controls
-          muted
           width="320"
           height="180"></video></div>
         </div>
@@ -107,6 +108,7 @@ export default {
     },
     addDMX () {
       let lastNumCh = 8
+      let lastRGB = [0, 1, 2]
       let uniStartCh = new Array(this.dmxconf.universes).fill(1)
       let defaultStartCh = 1
       let defaultStartUni = 1
@@ -114,6 +116,7 @@ export default {
         const device = this.dmxconf.devices[index]
         uniStartCh[device.universe - 1] = Math.max(uniStartCh[device.universe - 1], device.startCh + device.numCh)
         lastNumCh = device.numCh
+        lastRGB = device.rgb
       }
       console.log(uniStartCh)
       // Get first non-full universe
@@ -129,8 +132,11 @@ export default {
         universe: defaultStartUni, // Universe number (1-indexed)
         startCh: defaultStartCh, // The first channel used for this device
         numCh: lastNumCh, // The number of channels this device uses
-        rgb: [0, 1, 2] // The R,G,B channels of this device (relative to ch start)
+        rgb: lastRGB // The R,G,B channels of this device (relative to ch start)
       })
+    },
+    delDMX (index) {
+      this.dmxconf.devices.splice(index, 1)
     },
     channelConflict (deviceA, deviceindex) {
       // Returns true or false depending on whether channel is in use
@@ -147,6 +153,7 @@ export default {
       return false
     },
     dragover (e) {
+      e.preventDefault()
       var holder = document.getElementById('dropzone-area-1')
       holder.classList.add('dragover')
       console.log(e)
@@ -325,9 +332,9 @@ export default {
       for (let index = 0; index < this.dmxconf.devices.length; index++) {
         const device = this.dmxconf.devices[index]
         slotsData[0] = 255
-        slotsData[device.startCh + device.rgb[0]] = colorFull.value[0]
-        slotsData[device.startCh + device.rgb[1]] = colorFull.value[1]
-        slotsData[device.startCh + device.rgb[2]] = colorFull.value[2]
+        slotsData[device.startCh + device.rgb[0] - 1] = colorFull.value[0]
+        slotsData[device.startCh + device.rgb[1] - 1] = colorFull.value[1]
+        slotsData[device.startCh + device.rgb[2] - 1] = colorFull.value[2]
       }
 
       client.send(packet)
@@ -551,6 +558,10 @@ export default {
     text-align: center;
     transition: 0.3s ease all;
   }
+
+  .dmx-device .dmx-delete {
+    float: right;
+  }
   
   .dmx-device.conflicting input#name {
     background-color: #dc3545;
@@ -577,13 +588,26 @@ export default {
   #dropzone-area-1 {
     padding: 3em;
     background: white;
-    border: 4px solid hsla(133, 89%, 70%, 1);
+    outline: 4px solid hsla(133, 89%, 70%, 1);
     text-align: center;
     cursor: pointer;
+    box-shadow: inset 0 0 0px 0px hsla(133, 89%, 70%, 1);
+    transition: 0.3s ease all;
   }
 
   #dropzone-area-1 p {
     margin-bottom: 0;
+    font-size: 2em;
+  }
+
+  #dropzone-area-1.dragover {
+    background: rgb(214,253,223);
+  }
+
+  div#dropzone-area-1.valid {
+    box-shadow: inset 0 0 1px 100px hsla(133, 89%, 70%, 1);
+    background: hsla(133, 89%, 70%, 1);
+    font-weight: bold;
   }
 
   #video-container {
