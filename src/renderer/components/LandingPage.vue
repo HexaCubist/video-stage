@@ -34,12 +34,17 @@
               <label for="numCh">Number of channels</label>
               <input type="number" class="form-control" id="numCh" placeholder="# of channels" v-model.number="device.numCh">
             </div>
+            <div class="form-group form-check">
+              <input type="checkbox" class="form-check-input" id="useT" placeholder="# of channels" v-model="device.useT">
+              <label for="useT" class="form-check-label">Device has a "total" dimmer</label>
+            </div>
             <div class="form-group">
-              <label>R G B Channel offsets</label>
+              <label title="(Total, Red, Green, Blue)">T R G B Channel offsets</label>
               <div class="input-group">
-                <input type="number" class="form-control" placeholder="R" v-model.number="device.rgb[0]" min="0" :max="device.numCh - 1">
-                <input type="number" class="form-control" placeholder="G" v-model.number="device.rgb[1]" min="0" :max="device.numCh - 1">
-                <input type="number" class="form-control" placeholder="B" v-model.number="device.rgb[2]" min="0" :max="device.numCh - 1">
+                <input type="number" class="form-control" placeholder="T" v-model.number="device.trgb[0]" min="0" :max="device.numCh - 1" :disabled="device.useT == false">
+                <input type="number" class="form-control" placeholder="R" v-model.number="device.trgb[1]" min="0" :max="device.numCh - 1">
+                <input type="number" class="form-control" placeholder="G" v-model.number="device.trgb[2]" min="0" :max="device.numCh - 1">
+                <input type="number" class="form-control" placeholder="B" v-model.number="device.trgb[3]" min="0" :max="device.numCh - 1">
               </div>
             </div>
             <button class="btn btn-danger dmx-delete" @click="delDMX(index)">Delete</button>
@@ -108,7 +113,8 @@ export default {
     },
     addDMX () {
       let lastNumCh = 8
-      let lastRGB = [0, 1, 2]
+      let lastTRGB = [0, 1, 2, 3]
+      let lastUseT = true
       let uniStartCh = new Array(this.dmxconf.universes).fill(1)
       let defaultStartCh = 1
       let defaultStartUni = 1
@@ -116,7 +122,8 @@ export default {
         const device = this.dmxconf.devices[index]
         uniStartCh[device.universe - 1] = Math.max(uniStartCh[device.universe - 1], device.startCh + device.numCh)
         lastNumCh = device.numCh
-        lastRGB = device.rgb
+        lastTRGB = device.trgb
+        lastUseT = device.useT
       }
       console.log(uniStartCh)
       // Get first non-full universe
@@ -132,7 +139,8 @@ export default {
         universe: defaultStartUni, // Universe number (1-indexed)
         startCh: defaultStartCh, // The first channel used for this device
         numCh: lastNumCh, // The number of channels this device uses
-        rgb: lastRGB // The R,G,B channels of this device (relative to ch start)
+        useT: lastUseT,
+        trgb: lastTRGB // The R,G,B channels of this device (relative to ch start)
       })
     },
     delDMX (index) {
@@ -331,10 +339,10 @@ export default {
 
       for (let index = 0; index < this.dmxconf.devices.length; index++) {
         const device = this.dmxconf.devices[index]
-        slotsData[0] = 255
-        slotsData[device.startCh + device.rgb[0] - 1] = colorFull.value[0]
-        slotsData[device.startCh + device.rgb[1] - 1] = colorFull.value[1]
-        slotsData[device.startCh + device.rgb[2] - 1] = colorFull.value[2]
+        if (device.useT) slotsData[device.startCh + device.trgb[0] - 1] = 255
+        slotsData[device.startCh + device.trgb[1] - 1] = colorFull.value[0]
+        slotsData[device.startCh + device.trgb[2] - 1] = colorFull.value[1]
+        slotsData[device.startCh + device.trgb[3] - 1] = colorFull.value[2]
       }
 
       client.send(packet)
@@ -375,114 +383,6 @@ export default {
     }
   }
 }
-
-// Animation
-/* eslint no-unused-vars: ["error", { "varsIgnorePattern": "Ambilight" }] */
-// var Ambilight4Sides = {
-//   init: function (video, container) {
-//     this._ac = new FastAverageColor()
-//     this._video = video
-//     this._container = container
-
-//     this.radius = '200px'
-//     this.delta = '200px'
-//     this.size = 70
-
-//     this.bindEvents()
-
-//     !video.paused && this._onplay()
-//   },
-//   destroy: function () {
-//     if (this._video) {
-//       this._video.removeEventListener('play', this._onplay, false)
-//       this._video.removeEventListener('pause', this._onpause, false)
-//       this._container.style.boxShadow = 'none'
-//     }
-
-//     window.cancelAnimationFrame(this._requestId)
-
-//     delete this._ac
-//     delete this._video
-//     delete this._container
-//   },
-//   bindEvents: function () {
-//     var that = this
-//     console.log(that.Ambilight4Sides.video)
-//     console.log(that.Ambilight4Sides.video.videoWidth)
-
-//     this._onplay = function () {
-//       that.Ambilight4Sides.width = that.Ambilight4Sides.video.videoWidth
-//       that.Ambilight4Sides.height = that.Ambilight4Sides.video.videoHeight
-
-//       that.Ambilight4Sides.requestId = window.requestAnimationFrame(that.updateBoxShadows.bind(that))
-//     }
-
-//     this._onpause = function () {
-//       window.cancelAnimationFrame(that.Ambilight4Sides.requestId)
-//     }
-
-//     this._video.addEventListener('play', this._onplay, false)
-//     this._video.addEventListener('pause', this._onpause, false)
-//   },
-//   updateBoxShadows: function () {
-//     var ac = this._ac
-//     var width = this._width
-//     var height = this._height
-//     var size = this.size
-//     var video = this._video
-//     var colorTop = ac.getColor(video, {
-//       left: 0,
-//       top: 0,
-//       height: size,
-//       width: width
-//     })
-//     var colorRight = ac.getColor(video, {
-//       left: width - size,
-//       top: 0,
-//       width: size,
-//       height: height
-//     })
-//     var colorLeft = ac.getColor(video, {
-//       left: 0,
-//       top: 0,
-//       width: size,
-//       height: height
-//     })
-//     var colorBottom = ac.getColor(video, {
-//       left: 0,
-//       top: height - size,
-//       width: width,
-//       height: size
-//     })
-//     var colorFull = ac.getColor(video)
-
-//     // Get window.vue data
-//     let dmxconf = window.vue.dmxconf.devices
-
-//     for (let index = 0; index < dmxconf.devices.length; index++) {
-//       const device = dmxconf.devices[index]
-//       console.log(device)
-//       slotsData[0] = 255
-//       slotsData[device.startCh + device.rgb[0]] = colorFull.value[0]
-//       slotsData[device.startCh + device.rgb[1]] = colorFull.value[1]
-//       slotsData[device.startCh + device.rgb[2]] = colorFull.value[2]
-//     }
-
-//     client.send(packet)
-
-//     this._container.style.boxShadow = [
-//       '0 -{delta} {radius} ' + colorTop.rgb,
-//       '{delta} 0 {radius} ' + colorRight.rgb,
-//       '0 {delta} {radius} ' + colorBottom.rgb,
-//       '-{delta} 0 {radius} ' + colorLeft.rgb
-//     ]
-//       .join(', ')
-//       .replace(/\{delta\}/g, this.delta)
-//       .replace(/\{radius\}/g, this.radius)
-
-//     this._requestId = window.requestAnimationFrame(this.Ambilight4Sides_updateBoxShadows.bind(this))
-//   }
-// }
 </script>
 
 <style>
@@ -525,7 +425,7 @@ export default {
       padding: 1em;
       transition: 0.3s ease all;
       box-shadow: 0 0 0px rgba(220, 53, 69, 0.45);
-      height: 450px;
+      height: 550px;
   }
 
   .dmx-device.conflicting {
